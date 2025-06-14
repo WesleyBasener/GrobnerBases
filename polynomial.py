@@ -10,6 +10,9 @@ class Polynomial:
         self.ordering = ordering
         self.order()
         self.simplify()
+        if len(self.coef) == 0:
+            self.coef = np.array([0])
+            self.exp = np.zeros((1, exp.shape[1]))
         
     def order(self):
         if len(self.coef) > 1:
@@ -26,87 +29,111 @@ class Polynomial:
                 self.exp[i], self.exp[max_idx] = copy.copy(self.exp[max_idx]), copy.copy(self.exp[i])
     
     def simplify(self):
-        num_coef = len(self.coef)
-        i = 0
-        while i < num_coef:
-            j = i+1
-            while j < num_coef:
-                if (self.exp[i] == self.exp[j]).all():
-                    self.coef[i] += self.coef[j]
-                    self.exp = np.delete(self.exp, (j), axis=0)
-                    self.coef = np.delete(self.coef, (j), axis=0)
+        if len(self.coef) == 1 and self.coef[0] == 0:
+            self.exp = np.zeros((1,len(self.exp[0])))
+        else:
+            num_coef = len(self.coef)
+            i = 0
+            while i < num_coef:
+                j = i+1
+                while j < num_coef:
+                    if (self.exp[i] == self.exp[j]).all():
+                        self.coef[i] += self.coef[j]
+                        self.exp = np.delete(self.exp, (j), axis=0)
+                        self.coef = np.delete(self.coef, (j), axis=0)
+                        num_coef -= 1
+                    else:
+                        j += 1
+                i += 1
+
+            num_coef = len(self.coef)
+            i = 0
+            while i < num_coef:
+                if self.coef[i] == 0:
+                    self.exp = np.delete(self.exp, (i), axis=0)
+                    self.coef = np.delete(self.coef, (i), axis=0)
                     num_coef -= 1
                 else:
-                    j += 1
-            i += 1
-
-        num_coef = len(self.coef)
-        i = 0
-        while i < num_coef:
-            if self.coef[i] == 0:
-                self.exp = np.delete(self.exp, (i), axis=0)
-                self.coef = np.delete(self.coef, (i), axis=0)
-                num_coef -= 1
-            else:
-                i += 1
+                    i += 1
 
         
     def remove_leading(self):
-        self.exp = np.delete(self.exp, (0), axis=0)
-        self.coef = np.delete(self.coef, (0), axis=0)
+        if len(self) == 1:
+            self.coef = np.zeros(1)
+            self.exp = np.zeros((1,len(self.exp[0])))
+        else:
+            self.exp = np.delete(self.exp, (0), axis=0)
+            self.coef = np.delete(self.coef, (0), axis=0)
 
-def add(p_1:Polynomial, p_2:Polynomial):
-    if p_1 is None:
-        return p_2
-    if p_2 is None:
-        return p_1
+    def __len__(self):
+        return len(self.coef)
+
+    def __eq__(self, other):
+        if isinstance(other, (int, float, complex)):
+            return len(self.coef) == 1 and self.coef[0] == other
+                
+        return (self.coef == other.coef).all() and (self.exp == other.exp).all()
+        
+    def __repr__(self):
+        return np.concat((self.coef.reshape(1,len(self.coef)), self.exp)).T
     
-    assert p_1.ordering == p_2.ordering
-
-    coef = np.append(copy.copy(p_1.coef), copy.copy(p_2.coef))
-    exp = np.append(copy.copy(p_1.exp), copy.copy(p_2.exp), axis=0)
-
-    return Polynomial(coef, exp, p_1.ordering)
-
-def subtract(p_1:Polynomial, p_2:Polynomial):
-    if p_1 is None:
-        return p_2
-    if p_2 is None:
-        return p_1
+    def __str__(self):
+        ret = ""
+        for i in range(len(self.coef)):
+            term = ""
+            if self.exp[i][0] > 0:
+                term = term + f"x^{self.exp[i][0]}"
+            if len(self.exp[i]) > 1 and self.exp[i][1] > 0:
+                term = term + f"y^{self.exp[i][1]}"
+            if len(self.exp[i]) > 2 and self.exp[i][2] > 0:
+                term = term + f"z^{self.exp[i][2]}"
+            ret = ret + f"{self.coef[i]}" + term
+        return ret
     
-    assert p_1.ordering == p_2.ordering
+    def __add__(self, other):
+        assert self.ordering == other.ordering
 
-    coef = np.append(copy.copy(p_1.coef), -1*copy.copy(p_2.coef))
-    exp = np.append(copy.copy(p_1.exp), copy.copy(p_2.exp), axis=0)
+        coef = np.append(copy.copy(self.coef), copy.copy(other.coef))
+        exp = np.append(copy.copy(self.exp), copy.copy(other.exp), axis=0)
 
-    return Polynomial(coef, exp, p_1.ordering)
+        return Polynomial(coef, exp, self.ordering)
 
-def multiply(p_1:Polynomial, p_2:Polynomial):
-    if p_1 is None:
-        return p_2
-    if p_2 is None:
-        return p_1
+    def __sub__(self, other):
+        assert self.ordering == other.ordering
+
+        coef = np.append(copy.copy(self.coef), -1*copy.copy(other.coef))
+        exp = np.append(copy.copy(self.exp), copy.copy(other.exp), axis=0)
+
+        return Polynomial(coef, exp, self.ordering)
     
-    assert p_1.ordering == p_2.ordering
+    def __mul__(self, other):
+        assert self.ordering == other.ordering
     
-    coef = np.zeros(len(p_1.coef) * len(p_2.coef))
-    exp = np.zeros((p_1.exp.shape[0] * p_2.exp.shape[0], p_1.exp.shape[1]))
+        coef = np.zeros(len(self.coef) * len(other.coef))
+        exp = np.zeros((self.exp.shape[0] * other.exp.shape[0], self.exp.shape[1]))
 
-    for i in range(len(p_1.coef)):
-        for j in range(len(p_2.coef)):
-            idx = len(p_1.coef)*i + j
-            coef[idx] = p_1.coef[i] * p_2.coef[j]
-            exp[idx,:] = p_1.exp[i] + p_2.exp[j]
+        for i in range(len(self.coef)):
+            for j in range(len(other.coef)):
+                idx = len(self.coef)*i + j
+                coef[idx] = self.coef[i] * other.coef[j]
+                exp[idx,:] = self.exp[i] + other.exp[j]
 
-    return Polynomial(coef, exp, p_1.ordering)
-
-def divide(f:Polynomial, G:list[Polynomial]):
-    Q = [None for g in G]
+        return Polynomial(coef, exp, self.ordering)
     
-    return divide_rec(copy.deepcopy(f), copy.deepcopy(G), Q, None)
+    def __truediv__(self, G):
+        if type(G) is not list:
+            G = [G]
+        
+        for g in G:
+            assert g != 0
+            
+        Q = [Polynomial(coef=np.array([0]), exp=np.zeros((1,len(g.exp[0])))) for g in G]
+        r = Polynomial(coef=np.array([0]), exp=np.zeros((1,len(self.exp[0]))))
 
+        return divide_rec(copy.deepcopy(self), copy.deepcopy(G), Q, r)
+    
 def divide_rec(f:Polynomial, G:list[Polynomial], Q:list[Polynomial], r:Polynomial):
-    if len(f.coef) <= 0:
+    if f == 0:
         return Q, r
     for i, g in enumerate(G):
         if (f.exp[0] >= g.exp[0]).all():
@@ -115,15 +142,15 @@ def divide_rec(f:Polynomial, G:list[Polynomial], Q:list[Polynomial], r:Polynomia
                 exp = np.array([copy.copy(f.exp[0] - g.exp[0])]),
                 ordering=f.ordering
                 )
-            Q[i] = add(Q[i], a)
-            f = subtract(f, multiply(a, g))
+            Q[i] = Q[i] + a
+            f = f - a*g
             return divide_rec(f, G, Q, r)
     lt = Polynomial(
                 coef = np.array([f.coef[0]]),
                 exp = np.array([f.exp[0]]),
                 ordering=f.ordering
                 )
-    r = add(r, lt)
+    r = r + lt
     f.remove_leading()
     return divide_rec(f, G, Q, r)
 
@@ -141,24 +168,24 @@ def cancel_leading_terms(f1:Polynomial, f2:Polynomial):
         ordering=f2.ordering
     )
 
-    return subtract(multiply(M_over_L1, f1), multiply(M_over_L2, f2))
+    return M_over_L1*f1 - M_over_L2*f2
 
 def buchberger_algorithm(G:list[Polynomial]):
     for i in range(len(G)):
         for j in range(i+1, len(G)):
             S_ij = cancel_leading_terms(G[i], G[j])
             
-            _, r = divide(S_ij, G)
-            if r is not None:
+            _, r = S_ij/G
+            if r != 0:
                 G.append(r)
                 return buchberger_algorithm(G)
     return G
 
 def reduce_grobner_basis(G:list[Polynomial]):
     for i in range(len(G)):
-        _, G[i] = divide(G[i], [G[j] for j in range(len(G)) if j != i and G[j] is not None])
+        _, G[i] = G[i] / [G[j] for j in range(len(G)) if j != i and G[j] != 0]
     
-    G = [g for g in G if g is not None]
+    G = [g for g in G if g != 0]
     for g in G:
         g.coef = 1/g.coef[0]*g.coef
     
