@@ -8,6 +8,19 @@ class Polynomial:
         self.coef = coef
         self.exp = exp
         self.ordering = ordering
+
+        if self.ordering == "lex":
+            self.comp = lex_compare
+            
+        elif self.ordering == "grlex":
+            self.comp = gr_lex_compare
+
+        elif self.ordering == "grevlex":
+            self.comp = grev_lex_compare
+
+        else:
+            raise Exception(f"Ordering \"{ordering}\" does not exist.")
+
         self.order()
         self.simplify()
         if len(self.coef) == 0:
@@ -16,13 +29,10 @@ class Polynomial:
         
     def order(self):
         if len(self.coef) > 1:
-            if self.ordering == "lex":
-                comp = lex_compare
-            
             for i in range(len(self.coef)):
                 max_idx = i
                 for j in range(i+1, len(self.coef)):
-                    if comp(self.exp[max_idx], self.exp[j]) < 0:
+                    if self.comp(self.exp[max_idx], self.exp[j]) < 0:
                         max_idx = j
                 
                 self.coef[i], self.coef[max_idx] = self.coef[max_idx], self.coef[i]
@@ -55,8 +65,7 @@ class Polynomial:
                     num_coef -= 1
                 else:
                     i += 1
-
-        
+       
     def remove_leading(self):
         if len(self) == 1:
             self.coef = np.zeros(1)
@@ -64,6 +73,9 @@ class Polynomial:
         else:
             self.exp = np.delete(self.exp, (0), axis=0)
             self.coef = np.delete(self.coef, (0), axis=0)
+
+    def get_leading(self):
+        return self.coef[0], self.exp[0]
 
     def __len__(self):
         return len(self.coef)
@@ -73,7 +85,20 @@ class Polynomial:
             return len(self.coef) == 1 and self.coef[0] == other
                 
         return (self.coef == other.coef).all() and (self.exp == other.exp).all()
-        
+    
+    def __lt__(self, other):
+        for i in len(self.exp):
+            if len(other.exp) < i+1:
+                return True
+            if self.comp(self.exp[i], other.exp[i]) == 1:
+                return True
+            if self.comp(self.exp[i], other.exp[i]) == -1:
+                return False
+        return False
+
+    def __gt__(self, other):
+        return not (self > other)
+    
     def __repr__(self):
         return np.concat((self.coef.reshape(1,len(self.coef)), self.exp)).T
     
@@ -82,12 +107,38 @@ class Polynomial:
         for i in range(len(self.coef)):
             term = ""
             if self.exp[i][0] > 0:
-                term = term + f"x^{self.exp[i][0]}"
+                if self.exp[i][0] != 1:
+                    term = term + f"x^{int(self.exp[i][0])}"
+                else:
+                    term = term + "x"
             if len(self.exp[i]) > 1 and self.exp[i][1] > 0:
-                term = term + f"y^{self.exp[i][1]}"
+                if self.exp[i][1] != 1:
+                    term = term + f"y^{int(self.exp[i][1])}"
+                else:
+                    term = term + "y"
             if len(self.exp[i]) > 2 and self.exp[i][2] > 0:
-                term = term + f"z^{self.exp[i][2]}"
-            ret = ret + f"{self.coef[i]}" + term
+                if self.exp[i][2] != 1:
+                    term = term + f"z^{int(self.exp[i][2])}"
+                else:
+                    term = term + "y"
+            if self.coef[i] - int(self.coef[i]) == 0:
+                coef = int(self.coef[i])
+            else:
+                coef = self.coef[i]
+            if coef == 1 and term != "":
+                    if i != 0:
+                        ret = ret + "+" + term
+                    else:
+                        ret = ret + term
+            elif coef == -1 and term != "":
+                    ret = ret + "-" + term
+            else:
+                if i == 0:
+                    ret = ret + f"{coef}" + term 
+                if self.coef[i] > 0 and i != 0:
+                    ret = ret + f"+{coef}" + term
+                if self.coef[i] < 0 and i != 0:
+                    ret = ret + f"{coef}" + term
         return ret
     
     def __add__(self, other):
@@ -199,3 +250,19 @@ def lex_compare(a:np.array, b:np.array):
         if b[i] > a[i]:
             return -1
     return 0 
+
+def gr_lex_compare(a:np.array, b:np.array):
+    assert len(a) == len(b)
+    if sum(a) > sum(b):
+        return 1
+    if sum(a) < sum(b):
+        return -1
+    return lex_compare(a,b)
+
+def grev_lex_compare(a:np.array, b:np.array):
+    assert len(a) == len(b)
+    if sum(a) > sum(b):
+        return 1
+    if sum(a) < sum(b):
+        return -1
+    return -1*lex_compare(a,b)
