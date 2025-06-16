@@ -1,5 +1,6 @@
 import numpy as np
-from polynomial import Polynomial, buchberger_algorithm, reduce_grobner_basis
+from polynomial import Polynomial
+from grobner_methods import buchberger_algorithm, reduce_grobner_basis
 #Polynomial(coef=np.array([]), exp=np.array([]))
 
 if __name__ == "__main__":

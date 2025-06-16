@@ -2,6 +2,8 @@ import numpy as np
 import math
 import copy
 
+from orderings import lex_compare, gr_lex_compare, grev_lex_compare
+
 class Polynomial:
     
     def __init__(self, coef:np.array, exp:np.array, ordering="lex"):
@@ -204,65 +206,3 @@ def divide_rec(f:Polynomial, G:list[Polynomial], Q:list[Polynomial], r:Polynomia
     r = r + lt
     f.remove_leading()
     return divide_rec(f, G, Q, r)
-
-def cancel_leading_terms(f1:Polynomial, f2:Polynomial):
-    M = np.array([max(f1.exp[0,i], f2.exp[0,i]) for i in range(len(f1.exp[0]))])
-
-    M_over_L1 = Polynomial(
-        coef=np.array([1/f1.coef[0]]),
-        exp=copy.copy(np.array([M-f1.exp[0]])),
-        ordering=f1.ordering
-    )
-    M_over_L2 = Polynomial(
-        coef=np.array([1/f2.coef[0]]),
-        exp=copy.copy(np.array([M-f2.exp[0]])),
-        ordering=f2.ordering
-    )
-
-    return M_over_L1*f1 - M_over_L2*f2
-
-def buchberger_algorithm(G:list[Polynomial]):
-    for i in range(len(G)):
-        for j in range(i+1, len(G)):
-            S_ij = cancel_leading_terms(G[i], G[j])
-            
-            _, r = S_ij/G
-            if r != 0:
-                G.append(r)
-                return buchberger_algorithm(G)
-    return G
-
-def reduce_grobner_basis(G:list[Polynomial]):
-    for i in range(len(G)):
-        _, G[i] = G[i] / [G[j] for j in range(len(G)) if j != i and G[j] != 0]
-    
-    G = [g for g in G if g != 0]
-    for g in G:
-        g.coef = 1/g.coef[0]*g.coef
-    
-    return G
-
-def lex_compare(a:np.array, b:np.array):
-    assert len(a) == len(b)
-    for i in range(len(a)):
-        if a[i] > b[i]:
-            return 1
-        if b[i] > a[i]:
-            return -1
-    return 0 
-
-def gr_lex_compare(a:np.array, b:np.array):
-    assert len(a) == len(b)
-    if sum(a) > sum(b):
-        return 1
-    if sum(a) < sum(b):
-        return -1
-    return lex_compare(a,b)
-
-def grev_lex_compare(a:np.array, b:np.array):
-    assert len(a) == len(b)
-    if sum(a) > sum(b):
-        return 1
-    if sum(a) < sum(b):
-        return -1
-    return -1*lex_compare(a,b)
